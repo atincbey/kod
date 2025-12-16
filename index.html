@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kare Alan-Çevre Oyunu</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Container exactly 380x406 as requested */
+        #game-container {
+            width: 380px;
+            height: 406px;
+            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            border: 8px solid #ffffff; /* Çerçeve eklendi */
+        }
+
+        /* Background Bubbles */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            z-index: 0;
+            animation: floatUp infinite linear;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(450px) scale(0.5); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+
+        /* Square Animation */
+        .square-shape {
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: breathe 3s infinite ease-in-out;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.1);
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        /* Button Styling */
+        .option-btn {
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+            cursor: pointer;
+        }
+        .option-btn:active {
+            transform: scale(0.95);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Correct/Wrong Button States */
+        .btn-correct {
+            background-color: #4ade80 !important; /* Green */
+            color: white !important;
+            border-color: #22c55e !important;
+        }
+        .btn-wrong {
+            background-color: #f87171 !important; /* Red */
+            color: white !important;
+            border-color: #ef4444 !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* Gradient Animation for Loading Card */
+        @keyframes gradient-xy {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .animate-gradient {
+            background-size: 200% 200%;
+            animation: gradient-xy 3s ease infinite;
+        }
+
+        /* Spin Animation for Hourglass */
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+        }
+
+        /* Heartbeat Animation for Timer */
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            14% { transform: scale(1.15); }
+            28% { transform: scale(1); }
+            42% { transform: scale(1.15); }
+            70% { transform: scale(1); }
+        }
+        .animate-heartbeat {
+            animation: heartbeat 1.3s infinite;
+        }
+
+        /* Confetti */
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #ffd300;
+            top: 0;
+            opacity: 0;
+        }
+        @keyframes fall {
+            0% { top: -10px; transform: rotate(0deg); opacity: 1; }
+            100% { top: 400px; transform: rotate(720deg); opacity: 0; }
+        }
+
+        .z-content { z-index: 10; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Floating bubbles -->
+        <div class="bubble" style="width: 60px; height: 60px; left: 10%; animation-duration: 6s;"></div>
+        <div class="bubble" style="width: 40px; height: 40px; left: 70%; animation-duration: 8s; animation-delay: 1s;"></div>
+        <div class="bubble" style="width: 90px; height: 90px; left: 40%; animation-duration: 10s; animation-delay: 2s;"></div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen" onclick="revealQuestion()" class="flex absolute inset-0 z-30 flex-col items-center justify-center bg-white/60 backdrop-blur-sm cursor-pointer select-none">
+            
+            <div class="w-64 h-64 rounded-3xl animate-gradient bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 shadow-2xl flex flex-col items-center justify-center text-white transform transition hover:scale-105 duration-300 p-4 border-4 border-white/50">
+                <div class="text-6xl mb-4 animate-spin-slow drop-shadow-md">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <h2 class="text-2xl font-bold drop-shadow-md text-center">Soru<br>Hazırlanıyor</h2>
+            </div>
+
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden flex-col h-full w-full z-content relative justify-center">
+            
+            <!-- Circular Timer (Top Right) -->
+            <div class="absolute top-3 right-3 z-20">
+                <div id="timer-container" class="relative w-16 h-16">
+                    <!-- SVG Timer -->
+                    <svg class="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 100 100">
+                        <!-- Background Circle -->
+                        <circle cx="50" cy="50" r="45" fill="white" stroke="#e0e7ff" stroke-width="8"></circle>
+                        <!-- Progress Circle -->
+                        <circle id="timer-progress" cx="50" cy="50" r="45" fill="none" stroke="#a855f7" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                    </svg>
+                    <!-- Center Text -->
+                    <div class="absolute inset-0 flex items-center justify-center">
+                         <span id="timer-text" class="text-2xl font-bold text-indigo-600 font-mono">5</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Area -->
+            <div class="flex-grow flex flex-col items-center justify-center p-2 mt-8">
+                <!-- The Square Visualization -->
+                <div class="relative flex items-center justify-center mb-6">
+                    <div class="square-shape bg-gradient-to-tr from-blue-400 to-blue-300 border-4 border-white flex flex-col items-center justify-center text-white font-bold shadow-xl rounded-lg" 
+                         style="width: 140px; height: 140px;">
+                        <span class="text-sm opacity-90">Alan</span>
+                        <span class="text-3xl" id="area-value">36</span>
+                        <span class="text-sm">cm²</span>
+                    </div>
+                    <!-- Dimension lines -->
+                    <div class="absolute -right-4 h-full border-r-2 border-indigo-400/50 flex items-center">
+                        <span class="ml-2 text-indigo-600 font-bold text-lg rotate-90 whitespace-nowrap">? cm</span>
+                    </div>
+                </div>
+
+                <h2 class="text-xl font-bold text-indigo-800 mb-6 bg-white/60 px-4 py-2 rounded-lg backdrop-blur-sm">
+                    Çevresi kaç cm?
+                </h2>
+
+                <!-- Options Grid -->
+                <div class="grid grid-cols-2 gap-4 w-full px-6">
+                    <button id="btn-opt-1" onclick="checkAnswer(0)" class="option-btn">
+                        Option 1
+                    </button>
+                    <button id="btn-opt-2" onclick="checkAnswer(1)" class="option-btn">
+                        Option 2
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Solution Screen (Now Dynamic) -->
+        <div id="solution-screen" onclick="handleSolutionClick()" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 p-6 text-center cursor-pointer select-none hover:bg-gray-50 transition-colors">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-8 bg-indigo-50 px-6 py-2 rounded-full shadow-sm border border-indigo-100">Çözüm</h2>
+            
+            <div class="flex items-center justify-center mb-10 relative left-4">
+                <!-- Left Side: Calculation & Bracket -->
+                <div class="flex items-center mr-0">
+                     <div class="flex flex-col items-end mr-2">
+                        <span class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Kenar</span>
+                        <div id="sol-root" class="text-2xl font-bold text-red-500 whitespace-nowrap bg-white px-3 py-1 rounded-lg shadow-sm border border-red-100">
+                            <!-- Dynamic Content -->
+                        </div>
+                     </div>
+                     <!-- Bracket hugging the square -->
+                     <div class="h-28 w-4 border-l-4 border-t-4 border-b-4 border-red-300 rounded-l-lg opacity-80"></div>
+                </div>
+
+                <!-- The Square -->
+                <div class="w-36 h-36 bg-blue-50 border-4 border-indigo-500 flex flex-col items-center justify-center rounded-xl shadow-lg z-10">
+                    <span class="text-gray-500 font-semibold mb-1">Alan</span>
+                    <span id="sol-area" class="text-4xl font-bold text-indigo-600"><!-- Dynamic --></span>
+                    <span class="text-sm text-gray-400 mt-1">cm²</span>
+                </div>
+            </div>
+
+            <!-- Bottom Calculation -->
+            <div class="w-full bg-white border-l-4 border-green-400 p-4 rounded-r-lg shadow-md text-left max-w-xs mx-auto">
+                <div class="text-gray-500 text-sm mb-1">Çevre Hesabı:</div>
+                <div class="flex items-center gap-2">
+                    <span id="sol-calc-step" class="text-xl font-bold text-gray-700"><!-- Dynamic --></span>
+                    <span id="sol-result" class="text-3xl font-bold text-green-600"><!-- Dynamic --></span>
+                </div>
+            </div>
+            
+            <p id="sol-hint-text" class="text-gray-400 text-xs mt-12 opacity-50 animate-pulse">(Sıradaki soru için ekrana tıkla)</p>
+        </div>
+
+        <!-- Confetti Container -->
+        <div id="confetti-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+    </div>
+
+    <script>
+        // Game Logic Variables
+        let currentQuestionIndex = 0;
+        const totalQuestions = 3;
+        let isAnswering = false;
+        let timerInterval = null;
+        let timeLeft = 5;
+        const totalTime = 5;
+        // Circumference = 2 * PI * r = 2 * 3.14159 * 45 = 282.7
+        const circleCircumference = 283; 
+
+        const questionPool = [
+            { area: 16, side: 4, perim: 16 },
+            { area: 36, side: 6, perim: 24 },
+            { area: 64, side: 8, perim: 32 },
+            { area: 25, side: 5, perim: 20 },
+            { area: 49, side: 7, perim: 28 },
+            { area: 81, side: 9, perim: 36 },
+            { area: 100, side: 10, perim: 40 }
+        ];
+
+        let selectedQuestions = [];
+        let currentQ = null;
+
+        // Elements
+        const gameScreen = document.getElementById('game-screen');
+        const solutionScreen = document.getElementById('solution-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        
+        const areaValueEl = document.getElementById('area-value');
+        const btn1 = document.getElementById('btn-opt-1');
+        const btn2 = document.getElementById('btn-opt-2');
+        
+        const timerText = document.getElementById('timer-text');
+        const timerProgress = document.getElementById('timer-progress');
+        const timerContainer = document.getElementById('timer-container'); // Added reference
+
+        // Dynamic Solution Elements
+        const solArea = document.getElementById('sol-area');
+        const solRoot = document.getElementById('sol-root');
+        const solCalcStep = document.getElementById('sol-calc-step');
+        const solResult = document.getElementById('sol-result');
+        const solHintText = document.getElementById('sol-hint-text');
+
+        // Initialize immediately
+        window.onload = startGame;
+
+        function startGame() {
+            currentQuestionIndex = 0;
+            const shuffled = [...questionPool].sort(() => 0.5 - Math.random());
+            selectedQuestions = shuffled.slice(0, 3);
+
+            solutionScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            
+            loadingScreen.classList.remove('hidden');
+            loadingScreen.classList.add('flex');
+        }
+
+        function revealQuestion() {
+            loadingScreen.classList.add('hidden');
+            loadingScreen.classList.remove('flex');
+            
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            isAnswering = true;
+            currentQ = selectedQuestions[currentQuestionIndex];
+            
+            // --- TIMER LOGIC START ---
+            timeLeft = totalTime;
+            
+            // 0. Reset Heartbeat
+            timerContainer.classList.remove('animate-heartbeat');
+
+            // 1. Reset Text
+            timerText.innerText = timeLeft;
+            timerText.classList.remove('text-red-600');
+            timerText.classList.add('text-indigo-600');
+
+            // 2. Reset Circle (Snap to Full)
+            timerProgress.style.transition = 'none'; // Disable transition for instant snap
+            timerProgress.style.strokeDashoffset = '0'; // Full circle
+            timerProgress.setAttribute('stroke', '#a855f7'); // Purple color
+            
+            // 3. Force Reflow (Important so browser realizes we are at 0 before animating to 283)
+            void timerProgress.offsetWidth; 
+
+            // 4. Start Continuous Animation (Empty over 5 seconds)
+            timerProgress.style.transition = 'stroke-dashoffset 5s linear, stroke 0.3s ease';
+            timerProgress.style.strokeDashoffset = circleCircumference; // Go to Empty
+            
+            // 5. Start Interval for Text and Colors
+            startTimer();
+            // --- TIMER LOGIC END ---
+
+            areaValueEl.innerText = currentQ.area;
+            
+            const correctAns = currentQ.perim;
+            let distractor = correctAns + 4;
+            if (Math.random() > 0.5) distractor = correctAns - 4;
+            if (distractor === correctAns) distractor += 8;
+
+            if (Math.random() > 0.5) {
+                btn1.innerText = correctAns;
+                btn1.dataset.correct = "true";
+                btn2.innerText = distractor;
+                btn2.dataset.correct = "false";
+            } else {
+                btn1.innerText = distractor;
+                btn1.dataset.correct = "false";
+                btn2.innerText = correctAns;
+                btn2.dataset.correct = "true";
+            }
+
+            btn1.className = "option-btn bg-purple-500 border-b-4 border-purple-700 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-purple-600";
+            btn2.className = "option-btn bg-orange-400 border-b-4 border-orange-600 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-orange-500";
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                
+                // Update Text
+                if (timeLeft > 0) {
+                    timerText.innerText = timeLeft;
+                } else {
+                    timerText.innerHTML = '<i class="fa-regular fa-clock"></i>';
+                    timerText.classList.remove('text-indigo-600');
+                    timerText.classList.add('text-red-600');
+                }
+
+                // Update Color based on time left (Circle handles its own dashoffset via CSS transition)
+                if (timeLeft <= 3 && timeLeft > 1) {
+                    timerProgress.setAttribute('stroke', '#fb923c'); // Orange
+                } else if (timeLeft <= 1) {
+                    timerProgress.setAttribute('stroke', '#f87171'); // Red
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    playBeepSound(); 
+                    timerContainer.classList.add('animate-heartbeat'); // Add heartbeat animation
+                }
+            }, 1000);
+        }
+
+        function playBeepSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.value = 440; 
+                
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch (e) {
+                console.log("Audio play failed:", e);
+            }
+        }
+
+        function checkAnswer(btnIndex) {
+            if (!isAnswering) return;
+            isAnswering = false;
+            
+            clearInterval(timerInterval); 
+
+            // FREEZE ANIMATION VISUALLY
+            const computedStyle = window.getComputedStyle(timerProgress);
+            const currentOffset = computedStyle.strokeDashoffset;
+            timerProgress.style.transition = 'none';
+            timerProgress.style.strokeDashoffset = currentOffset;
+
+            const selectedBtn = btnIndex === 0 ? btn1 : btn2;
+            const isCorrect = selectedBtn.dataset.correct === "true";
+
+            if (isCorrect) {
+                selectedBtn.classList.add('btn-correct');
+                playConfetti(15);
+            } else {
+                selectedBtn.classList.add('btn-wrong');
+            }
+
+            setTimeout(() => {
+                showSolution();
+            }, 1200);
+        }
+
+        function showSolution() {
+            solArea.innerText = currentQ.area;
+            solRoot.innerHTML = `&radic;${currentQ.area} = ${currentQ.side}`;
+            solCalcStep.innerText = `4 x ${currentQ.side} =`;
+            solResult.innerText = `${currentQ.perim} cm`;
+
+            if (currentQuestionIndex < totalQuestions - 1) {
+                solHintText.innerText = "(Sıradaki soru için ekrana tıkla)";
+            } else {
+                solHintText.innerText = "(Yeniden başlamak için ekrana tıkla)";
+            }
+
+            gameScreen.classList.add('hidden');
+            solutionScreen.classList.remove('hidden');
+            solutionScreen.classList.add('flex');
+            
+            playConfetti(30);
+        }
+
+        function handleSolutionClick() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < totalQuestions) {
+                solutionScreen.classList.add('hidden');
+                solutionScreen.classList.remove('flex');
+                
+                gameScreen.classList.remove('hidden');
+                gameScreen.classList.add('flex');
+                
+                loadQuestion();
+            } else {
+                startGame();
+            }
+        }
+
+        function playConfetti(amount) {
+            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'];
+            const container = document.getElementById('confetti-container');
+            
+            for (let i = 0; i < amount; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti-piece');
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animation = `fall ${Math.random() * 2 + 1}s linear forwards`;
+                container.appendChild(confetti);
+                setTimeout(() => { confetti.remove(); }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>
