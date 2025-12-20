@@ -139,6 +139,78 @@
         }
 
         .z-content { z-index: 10; }
+
+        /* Animated Question Styles */
+        @keyframes typewriter {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+
+        .typewriter-text {
+            overflow: hidden;
+            border-right: 3px solid #4f46e5;
+            white-space: nowrap;
+            margin: 0 auto;
+            animation: typewriter 2s steps(20) forwards, blink 0.75s step-end infinite;
+        }
+
+        .typewriter-text.complete {
+            border-right: none;
+            animation: none;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-slide-left {
+            animation: slideInLeft 0.6s ease-out forwards;
+        }
+
+        .animate-slide-right {
+            animation: slideInRight 0.6s ease-out forwards;
+        }
+
+        .animate-fade-scale {
+            animation: fadeInScale 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .hidden-initially {
+            opacity: 0;
+        }
     </style>
 </head>
 <body>
@@ -184,8 +256,8 @@
             <!-- Question Area -->
             <div class="flex-grow flex flex-col items-center justify-center p-2 mt-8">
                 <!-- The Square Visualization -->
-                <div class="relative flex items-center justify-center mb-6">
-                    <div class="square-shape bg-gradient-to-tr from-blue-400 to-blue-300 border-4 border-white flex flex-col items-center justify-center text-white font-bold shadow-xl rounded-lg" 
+                <div id="square-container" class="relative flex items-center justify-center mb-6 hidden-initially">
+                    <div class="square-shape bg-gradient-to-tr from-blue-400 to-blue-300 border-4 border-white flex flex-col items-center justify-center text-white font-bold shadow-xl rounded-lg"
                          style="width: 140px; height: 140px;">
                         <span class="text-sm opacity-90">Alan</span>
                         <span class="text-3xl" id="area-value">36</span>
@@ -197,16 +269,18 @@
                     </div>
                 </div>
 
-                <h2 class="text-xl font-bold text-indigo-800 mb-6 bg-white/60 px-4 py-2 rounded-lg backdrop-blur-sm">
-                    Çevresi kaç cm?
-                </h2>
+                <div class="mb-6 bg-white/60 px-4 py-2 rounded-lg backdrop-blur-sm">
+                    <h2 id="question-text" class="text-xl font-bold text-indigo-800 typewriter-text">
+                        Çevresi kaç cm?
+                    </h2>
+                </div>
 
                 <!-- Options Grid -->
                 <div class="grid grid-cols-2 gap-4 w-full px-6">
-                    <button id="btn-opt-1" onclick="checkAnswer(0)" class="option-btn">
+                    <button id="btn-opt-1" onclick="checkAnswer(0)" class="option-btn hidden-initially">
                         Option 1
                     </button>
-                    <button id="btn-opt-2" onclick="checkAnswer(1)" class="option-btn">
+                    <button id="btn-opt-2" onclick="checkAnswer(1)" class="option-btn hidden-initially">
                         Option 2
                     </button>
                 </div>
@@ -283,14 +357,18 @@
         const gameScreen = document.getElementById('game-screen');
         const solutionScreen = document.getElementById('solution-screen');
         const loadingScreen = document.getElementById('loading-screen');
-        
+
         const areaValueEl = document.getElementById('area-value');
         const btn1 = document.getElementById('btn-opt-1');
         const btn2 = document.getElementById('btn-opt-2');
-        
+
         const timerText = document.getElementById('timer-text');
         const timerProgress = document.getElementById('timer-progress');
         const timerContainer = document.getElementById('timer-container'); // Added reference
+
+        // Animated Question Elements
+        const squareContainer = document.getElementById('square-container');
+        const questionText = document.getElementById('question-text');
 
         // Dynamic Solution Elements
         const solArea = document.getElementById('sol-area');
@@ -327,10 +405,22 @@
         function loadQuestion() {
             isAnswering = true;
             currentQ = selectedQuestions[currentQuestionIndex];
-            
+
+            // --- RESET ANIMATIONS ---
+            squareContainer.classList.remove('animate-fade-scale');
+            squareContainer.classList.add('hidden-initially');
+            questionText.classList.remove('typewriter-text', 'complete');
+            btn1.classList.remove('animate-slide-left');
+            btn1.classList.add('hidden-initially');
+            btn2.classList.remove('animate-slide-right');
+            btn2.classList.add('hidden-initially');
+
+            // Force reflow
+            void squareContainer.offsetWidth;
+
             // --- TIMER LOGIC START ---
             timeLeft = totalTime;
-            
+
             // 0. Reset Heartbeat
             timerContainer.classList.remove('animate-heartbeat');
 
@@ -343,20 +433,20 @@
             timerProgress.style.transition = 'none'; // Disable transition for instant snap
             timerProgress.style.strokeDashoffset = '0'; // Full circle
             timerProgress.setAttribute('stroke', '#a855f7'); // Purple color
-            
+
             // 3. Force Reflow (Important so browser realizes we are at 0 before animating to 283)
-            void timerProgress.offsetWidth; 
+            void timerProgress.offsetWidth;
 
             // 4. Start Continuous Animation (Empty over 5 seconds)
             timerProgress.style.transition = 'stroke-dashoffset 5s linear, stroke 0.3s ease';
             timerProgress.style.strokeDashoffset = circleCircumference; // Go to Empty
-            
+
             // 5. Start Interval for Text and Colors
             startTimer();
             // --- TIMER LOGIC END ---
 
             areaValueEl.innerText = currentQ.area;
-            
+
             const correctAns = currentQ.perim;
             let distractor = correctAns + 4;
             if (Math.random() > 0.5) distractor = correctAns - 4;
@@ -374,8 +464,35 @@
                 btn2.dataset.correct = "true";
             }
 
-            btn1.className = "option-btn bg-purple-500 border-b-4 border-purple-700 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-purple-600";
-            btn2.className = "option-btn bg-orange-400 border-b-4 border-orange-600 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-orange-500";
+            btn1.className = "option-btn bg-purple-500 border-b-4 border-purple-700 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-purple-600 hidden-initially";
+            btn2.className = "option-btn bg-orange-400 border-b-4 border-orange-600 text-white font-bold py-4 rounded-xl text-2xl shadow-md hover:bg-orange-500 hidden-initially";
+
+            // --- TRIGGER ANIMATIONS IN SEQUENCE ---
+            // 1. Square fades in first (0ms)
+            setTimeout(() => {
+                squareContainer.classList.remove('hidden-initially');
+                squareContainer.classList.add('animate-fade-scale');
+            }, 100);
+
+            // 2. Question text typewriter starts (400ms after square)
+            setTimeout(() => {
+                questionText.classList.add('typewriter-text');
+                // Remove blinking cursor after typewriter completes
+                setTimeout(() => {
+                    questionText.classList.add('complete');
+                }, 2000);
+            }, 500);
+
+            // 3. Buttons slide in (2500ms after question text starts)
+            setTimeout(() => {
+                btn1.classList.remove('hidden-initially');
+                btn1.classList.add('animate-slide-left');
+            }, 2900);
+
+            setTimeout(() => {
+                btn2.classList.remove('hidden-initially');
+                btn2.classList.add('animate-slide-right');
+            }, 3000);
         }
 
         function startTimer() {
